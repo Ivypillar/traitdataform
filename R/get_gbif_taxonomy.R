@@ -58,210 +58,178 @@
 #'
 #' get_gbif_taxonomy("Vicia")
 
-get_gbif_taxonomy <- function(x, 
-                              subspecies = TRUE, 
-                              higherrank = FALSE, 
-                              verbose = FALSE, 
-                              fuzzy  = TRUE, 
-                              conf_threshold = 90,
-                              resolve_synonyms = TRUE
-                              ) {
-  
+get_gbif_taxonomy <- function (x, subspecies = TRUE, higherrank = FALSE, verbose = FALSE, 
+                               fuzzy = TRUE, conf_threshold = 90, resolve_synonyms = TRUE) 
+{
   matchtype = status = confidence = NULL
-  
-  # test for internet connectivity
-  if( !curl::has_internet() ) {
+  if (!curl::has_internet()) {
     message("Connection to Gbif Taxonomy API failed. Please check internet connectivity!")
-    temp <- lapply(x, function(i) {data.frame()} )
+    temp <- lapply(x, function(i) {
+      data.frame()
+    })
     names(temp) <- x
-    
-  } else {
-    
-  # get gbif mappings
-    
-  temp <- taxize::get_gbifid_(x, messages = verbose)
   }
-  
-  # loop over all species returns 
-  
-  for(i in 1:length(temp)) {
-    
+  else {
+    temp <- taxize::get_gbifid_(x, messages = verbose)
+  }
+  for (i in 1:length(temp)) {
     warning_i = ""
     synonym_i = FALSE
-    
-    # add warning in offline mode
-    
-    if( !curl::has_internet() ) { 
+    if (!curl::has_internet()) {
       warning_i = "Gbif Taxonomy Service unavailable! Internet connection required."
-      temp[[i]] <- data.frame(verbatimScientificName = x[i], matchtype = "NONE", status = "NA", rank = "species", stringsAsFactors = FALSE)
-      } else {
-    
-    # buildup empty returns
-    
-    if(nrow(temp[[i]]) == 0) {
-      warning_i <- paste("No matching species concept!")
-      temp[[i]] <- data.frame(verbatimScientificName = x[i], matchtype = "NONE", status = "NA", rank = "species", stringsAsFactors = FALSE)
-      
+      temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                              matchtype = "NONE", status = "NA", rank = "species", 
+                              stringsAsFactors = FALSE)
     }
-    
-    # clean out fuzzy  matches, if not allowed
-    
-    if(!fuzzy & nrow(temp[[i]]) > 0)  {   
-      temp[[i]] <- subset(temp[[i]], matchtype != "FUZZY")
-      if(nrow(temp[[i]]) == 0) {
-        warning_i <- paste(warning_i, "Fuzzy matching might yield results.")
+    else {
+      if (nrow(temp[[i]]) == 0) {
+        warning_i <- paste("No matching species concept!")
+        temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                                matchtype = "NONE", status = "NA", rank = "species", 
+                                stringsAsFactors = FALSE)
       }
-    }
-    
-    # check for confidence threshold 
-    
-    if(!is.null(conf_threshold) & nrow(temp[[i]]) > 0) {
-      temp[[i]] <- subset(temp[[i]], confidence >= conf_threshold)
-      if(nrow(temp[[i]]) == 0) {
-        temp[[i]] <- data.frame(verbatimScientificName = x[i], matchtype = "NONE", status = "NA", rank = "species", stringsAsFactors = FALSE)
-        warning_i <- paste(warning_i, "Check spelling or lower confidence threshold!")
+      if (!fuzzy & nrow(temp[[i]]) > 0) {
+        temp[[i]] <- subset(temp[[i]], matchtype != "FUZZY")
+        if (nrow(temp[[i]]) == 0) {
+          warning_i <- paste(warning_i, "Fuzzy matching might yield results.")
+        }
       }
-    }
-    
-    
-    # remove all synonyms, if accepted exact match is found
-    
-    if(any(temp[[i]]$status == "ACCEPTED")) {
-      
-      temp[[i]] <- subset(temp[[i]], status == "ACCEPTED")
-      temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-      #warning_i <- paste(warning_i, "Automatically mapped to accepted species name!", sep = " ")
-      if(nrow(temp[[i]]) > 1) {
-        temp[[i]] <- temp[[i]][1,]
-        warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+      if (!is.null(conf_threshold) & nrow(temp[[i]]) > 
+          0) {
+        temp[[i]] <- subset(temp[[i]], confidence >= 
+                              conf_threshold)
+        if (nrow(temp[[i]]) == 0) {
+          temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                                  matchtype = "NONE", status = "NA", rank = "species", 
+                                  stringsAsFactors = FALSE)
+          warning_i <- paste(warning_i, "Check spelling or lower confidence threshold!")
+        }
       }
-    }
-    
-    
-    # resolve all synonyms, if allowed 
-     
-    if(!any(temp[[i]]$status == "ACCEPTED") & any(temp[[i]]$status == "SYNONYM")) {
-      if(resolve_synonyms) {
+      if (any(temp[[i]]$status == "ACCEPTED")) {
+        temp[[i]] <- subset(temp[[i]], status == "ACCEPTED")
+        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                              max(temp[[i]]$confidence))
+        if (nrow(temp[[i]]) > 1) {
+          temp[[i]] <- temp[[i]][1, ]
+          warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+        }
+      }
+      if (!any(temp[[i]]$status == "ACCEPTED") & any(temp[[i]]$status == "SYNONYM") & any(temp[[i]]$rank == "species") ) {
+        if (resolve_synonyms) {
           keep <- temp[i]
-          temp[i] <- taxize::get_gbifid_(temp[[i]]$species[which.max(temp[[i]]$confidence)], messages = verbose)
-          if(temp[[i]][1,]$status == "ACCEPTED") {
-          
-            temp[[i]] <- subset(temp[[i]], matchtype == "EXACT" & status == "ACCEPTED")
-            temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-            if(nrow(temp[[i]]) > 1) {
-              temp[[i]] <- temp[[i]][1,]
+          #print(temp[i])
+          temp[i] <- taxize::get_gbifid_(temp[[i]]$species[which.max(temp[[i]]$confidence)], 
+                                         messages = verbose)
+          if (temp[[i]][1, ]$status == "ACCEPTED") {
+            temp[[i]] <- subset(temp[[i]], matchtype == 
+                                  "EXACT" & status == "ACCEPTED")
+            temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                                  max(temp[[i]]$confidence))
+            if (nrow(temp[[i]]) > 1) {
+              temp[[i]] <- temp[[i]][1, ]
               warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
             }
-            warning_i <- paste(warning_i, "A synonym was mapped to the accepted species concept!", sep = " ")
+            warning_i <- paste(warning_i, "A synonym was mapped to the accepted species concept!", 
+                               sep = " ")
             synonym_i = TRUE
-            
-          } else {
-            status <- temp[[i]][1,]$status
+          }
+          else {
+            status <- temp[[i]][1, ]$status
             temp[i] <- keep
-            if(nrow(temp[[i]]) > 1) {
-              temp[[i]] <- temp[[i]][1,]
+            if (nrow(temp[[i]]) > 1) {
+              temp[[i]] <- temp[[i]][1, ]
               warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
             }
-            warning_i <- paste0(warning_i, " Resolved synonym '", temp[[i]]$species,"' is labelled '", status, "'. Clarification required!" )
+            warning_i <- paste0(warning_i, " Resolved synonym '", 
+                                temp[[i]]$species, "' is labelled '", status, 
+                                "'. Clarification required!")
           }
-      
-      } else {
-        
+        }
+        else {
           temp[[i]] <- subset(temp[[i]], status == "SYNONYM")
-          temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-          warning_i <- paste(warning_i, "The provided taxon seems to be a synonym of '", temp[[i]]$species,"'!", sep = "")
-          
+          temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                                max(temp[[i]]$confidence))
+          warning_i <- paste(warning_i, "The provided taxon seems to be a synonym of '", 
+                             temp[[i]]$species, "'!", sep = "")
+        }
+      }
+      if (all(temp[[i]]$status == "DOUBTFUL")) {
+        temp[[i]] <- subset(temp[[i]], status == "DOUBTFUL")
+        warning_i <- paste(warning_i, "Mapped concept is labelled 'DOUBTFUL'!")
+        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                              max(temp[[i]]$confidence))
+        if (nrow(temp[[i]]) > 1) {
+          temp[[i]] <- temp[[i]][1, ]
+          warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+        }
+      }
+      rankorder <- c("kingdom", "phylum", "class", "order", 
+                     "family", "genus", "species", "subspecies")
+      if (match(temp[[i]]$rank, rankorder) > 7 & !subspecies) {
+        if (length(strsplit(as.character(temp[[i]]$canonicalname), 
+                            " ")[[1]]) > 2) {
+          temp[i] <- taxize::get_gbifid_(paste(strsplit(names(temp[i]), 
+                                                        " ")[[1]][1:2], collapse = " "), messages = verbose)
+          temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                                max(temp[[i]]$confidence))
+          warning_i <- paste(warning_i, "Subspecies has been remapped to species concept!", 
+                             sep = " ")
+        }
+        else {
+          temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                                  matchtype = "NONE", rank = "subspecies", 
+                                  stringsAsFactors = FALSE)
+          warning_i <- paste(warning_i, "No mapping of subspecies name to species was possible!", 
+                             sep = " ")
+        }
+      }
+      if (temp[[i]]$matchtype == "HIGHERRANK") {
+        if (higherrank) {
+          temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                                max(temp[[i]]$confidence))
+          warning_i <- paste(warning_i, "No matching species concept! Entry has been mapped to higher taxonomic level.")
+        }
+        else {
+          temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                                  matchtype = "NONE", rank = "highertaxon", 
+                                  stringsAsFactors = FALSE)
+          warning_i <- paste("No matching species concept!", 
+                             warning_i)
+        }
       }
     }
-      
-    # check for doubtful status 
-    
-    if(all(temp[[i]]$status == "DOUBTFUL")) {
-      
-      temp[[i]] <- subset(temp[[i]], status == "DOUBTFUL")
-      warning_i <- paste(warning_i, "Mapped concept is labelled 'DOUBTFUL'!")
-      
-      temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-      #warning_i <- paste(warning_i, "Automatically mapped to accepted species name!", sep = " ")
-      if(nrow(temp[[i]]) > 1) {
-        temp[[i]] <- temp[[i]][1,]        
-        warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
-      }
-    }
-    
-    
-    # 3. check rankorder of result
-  
-    rankorder <- c("kingdom", "phylum", "class", "order", "family", "genus", "species", "subspecies")
-    
-    if(match(temp[[i]]$rank, rankorder) > 7 & !subspecies) {
-      
-      if(length(strsplit(as.character(temp[[i]]$canonicalname), " ")[[1]]) > 2) {
-        
-        temp[i] <- taxize::get_gbifid_(paste(strsplit(names(temp[i]), " ")[[1]][1:2], collapse = " "), messages = verbose)
-        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-        
-        warning_i<- paste(warning_i, "Subspecies has been remapped to species concept!", sep = " ") 
-        
-      } else {
-        
-        temp[[i]] <- data.frame(verbatimScientificName = x[i], matchtype = "NONE", rank = "subspecies", stringsAsFactors = FALSE)
-        warning_i <- paste(warning_i, "No mapping of subspecies name to species was possible!", sep = " ")
-      }
-      
-    }
-    
-    if(temp[[i]]$matchtype == "HIGHERRANK") {
-      if(higherrank) {
-        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
-        warning_i <- paste(warning_i, "No matching species concept! Entry has been mapped to higher taxonomic level.")
-      } else {
-        temp[[i]] <- data.frame(verbatimScientificName = x[i], matchtype = "NONE", rank = "highertaxon", stringsAsFactors = FALSE)
-        warning_i <- paste("No matching species concept!", warning_i)
-      }
-    } 
-    
-    }
-    
-    # 4. create structured output
-
-      temp[[i]] <- data.frame(
-        verbatimScientificName = x[i], 
-        synonym = synonym_i, 
-        scientificName = if(is.null(temp[[i]]$canonicalname)) NA else temp[[i]]$canonicalname, 
-        author = if(is.null(temp[[i]]$canonicalname)) NA else sub(paste0(temp[[i]]$canonicalname," "), "", temp[[i]]$scientificname),
-        taxonRank = if(is.null(temp[[i]]$rank)) NA else temp[[i]]$rank,
-        confidence = if(is.null(temp[[i]]$confidence)) NA else temp[[i]]$confidence,
-        kingdom = if(is.null(temp[[i]]$kingdom)) NA else temp[[i]]$kingdom,
-        phylum = if(is.null(temp[[i]]$phylum)) NA else temp[[i]]$phylum,
-        class = if(is.null(temp[[i]]$class)) NA else temp[[i]]$class,
-        order = if(is.null(temp[[i]]$order)) NA else temp[[i]]$order,
-        family = if(is.null(temp[[i]]$family)) NA else temp[[i]]$family,
-        genus = if(is.null(temp[[i]]$genus)) NA else temp[[i]]$genus,
-        taxonomy = "GBIF Backbone Taxonomy", 
-        taxonID = if(is.null(temp[[i]]$usagekey)) NA else paste0("http://www.gbif.org/species/", temp[[i]]$usagekey, ""),
-        warnings = NA,
-        stringsAsFactors = FALSE
-      )
-    
+    temp[[i]] <- data.frame(verbatimScientificName = x[i], 
+                            synonym = synonym_i, scientificName = if (is.null(temp[[i]]$canonicalname)) 
+                              NA
+                            else temp[[i]]$canonicalname, author = if (is.null(temp[[i]]$canonicalname)) 
+                              NA
+                            else sub(paste0(temp[[i]]$canonicalname, " "), "", 
+                                     temp[[i]]$scientificname), taxonRank = if (is.null(temp[[i]]$rank)) 
+                                       NA
+                            else temp[[i]]$rank, confidence = if (is.null(temp[[i]]$confidence)) 
+                              NA
+                            else temp[[i]]$confidence, kingdom = if (is.null(temp[[i]]$kingdom)) 
+                              NA
+                            else temp[[i]]$kingdom, phylum = if (is.null(temp[[i]]$phylum)) 
+                              NA
+                            else temp[[i]]$phylum, class = if (is.null(temp[[i]]$class)) 
+                              NA
+                            else temp[[i]]$class, order = if (is.null(temp[[i]]$order)) 
+                              NA
+                            else temp[[i]]$order, family = if (is.null(temp[[i]]$family)) 
+                              NA
+                            else temp[[i]]$family, genus = if (is.null(temp[[i]]$genus)) 
+                              NA
+                            else temp[[i]]$genus, taxonomy = "GBIF Backbone Taxonomy", 
+                            taxonID = if (is.null(temp[[i]]$usagekey)) 
+                              NA
+                            else paste0("http://www.gbif.org/species/", temp[[i]]$usagekey, 
+                                        ""), warnings = NA, stringsAsFactors = FALSE)
     temp[[i]]$warnings <- warning_i
-    
-    if(verbose & nchar(warning_i) >= 1) warning(warning_i)
+    if (verbose & nchar(warning_i) >= 1) 
+      warning(warning_i)
   }
-  
-  #compile output data.frame 
-  
   out <- data.table::rbindlist(temp, fill = TRUE)
-  
   class(out) <- c("data.frame", "taxonomy")
-  
   return(out)
-  
-  
-      
 }
- 
-    
-    
-
-  
