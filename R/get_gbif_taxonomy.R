@@ -140,8 +140,10 @@ get_gbif_taxonomy <- function(x,
     
     # resolve all synonyms, if allowed 
      
-    if(!any(temp[[i]]$status == "ACCEPTED") & any(temp[[i]]$status == "SYNONYM" ) & any(temp[[i]]$rank == "species")) {
+    if(!any(temp[[i]]$status == "ACCEPTED") & any(temp[[i]]$status == "SYNONYM") & any(temp[[i]]$rank == "species")) {
       if(resolve_synonyms) {
+        
+
           keep <- temp[i]
           temp[i] <- taxize::get_gbifid_(temp[[i]]$species[which.max(temp[[i]]$confidence)], messages = verbose)
           if(temp[[i]][1,]$status == "ACCEPTED") {
@@ -193,8 +195,10 @@ get_gbif_taxonomy <- function(x,
     # 3. check rankorder of result
   
     rankorder <- c("kingdom", "phylum", "class", "order", "family", "genus", "species", "subspecies")
-    
-    if(match(temp[[i]]$rank, rankorder) > 7 & !subspecies) {
+    #print(temp)
+    #print(temp[[i]]$rank[1])
+    #print(rankorder)
+    if(match(temp[[i]]$rank[1], rankorder) > 7 & !subspecies) {
       
       if(length(strsplit(as.character(temp[[i]]$canonicalname), " ")[[1]]) > 2) {
         
@@ -211,7 +215,7 @@ get_gbif_taxonomy <- function(x,
       
     }
     
-    if(temp[[i]]$matchtype == "HIGHERRANK") {
+    if(temp[[i]]$matchtype[1] == "HIGHERRANK") {
       if(higherrank) {
         temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == max(temp[[i]]$confidence))
         warning_i <- paste(warning_i, "No matching species concept! Entry has been mapped to higher taxonomic level.")
@@ -257,8 +261,6 @@ get_gbif_taxonomy <- function(x,
   
   return(out)
   
-  
-      
 }
  
     
